@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# Virtual envs
+venv/
+.env/
+.venv/
+
+# VSCode / IDE
+.vscode/
+.idea/
+
+# OS cruft
+.DS_Store
