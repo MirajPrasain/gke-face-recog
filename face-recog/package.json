@@ -1,0 +1,28 @@
+{
+  "name": "face-recog",
+  "version": "1.0.0",
+  "description": "A stateless, horizontally scalable microservice for face detection, designed for the Bank-of-Anthos-inspired GKE microservice ecosystem.",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
+    "body-parser": "^2.2.0",
+    "canvas": "^3.2.0",
+    "express": "^5.1.0",
+    "multer": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.5.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facerecog-deployment
+  namespace: default   # or hackathon, stay consistent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: facerecog
+  template:
+    metadata:
+      labels:
+        app: facerecog
+    spec:
+      containers:
+      - name: facerecog
+        image: us-central1-docker.pkg.dev/prism-bank/team-repo/facerecog-service:v0.3
+        ports:
+        - containerPort: 8080
+        # Health checks for Kubernetes
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 20
