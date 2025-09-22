@@ -476,6 +476,39 @@ def create_app():
                                 _external=True,
                                 _scheme=app.config['SCHEME']))
 
+    @app.route('/facerecog', methods=['POST'])
+    def facerecog():
+        """
+        Proxies face recognition requests to facerecog-service
+        """
+        try:
+            app.logger.debug('Proxying face recognition request.')
+            
+            # Get the uploaded file
+            if 'image' not in request.files:
+                return jsonify({'error': 'No image file provided'}), 400
+            
+            image_file = request.files['image']
+            if image_file.filename == '':
+                return jsonify({'error': 'No image file selected'}), 400
+            
+            # Prepare the request to facerecog-service
+            files = {'image': (image_file.filename, image_file.stream, image_file.content_type)}
+            
+            # Forward request to facerecog-service
+            facerecog_url = f'http://{app.config["FACERECOG_API_ADDR"]}/detect_face'
+            response = requests.post(facerecog_url, files=files, timeout=app.config['BACKEND_TIMEOUT'])
+            
+            app.logger.debug(f'Face recognition response: {response.status_code}')
+            return response.json(), response.status_code
+            
+        except requests.exceptions.RequestException as err:
+            app.logger.error('Error calling facerecog service: %s', str(err))
+            return jsonify({'error': 'Face recognition service unavailable'}), 503
+        except Exception as err:
+            app.logger.error('Unexpected error in face recognition: %s', str(err))
+            return jsonify({'error': 'Internal server error'}), 500
+
     @app.route("/consent", methods=['GET'])
     def consent_page():
         """Renders consent page.
@@ -671,6 +704,7 @@ def create_app():
         os.environ.get('USERSERVICE_API_ADDR'))
     app.config["CONTACTS_URI"] = 'http://{}/contacts'.format(
         os.environ.get('CONTACTS_API_ADDR'))
+    app.config["FACERECOG_API_ADDR"] = os.environ.get('FACERECOG_API_ADDR')
     app.config['PUBLIC_KEY'] = open(os.environ.get('PUB_KEY_PATH'), 'r').read()
     app.config['LOCAL_ROUTING'] = os.getenv('LOCAL_ROUTING_NUM')
     # timeout in seconds for calls to the backend

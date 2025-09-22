@@ -30,3 +30,63 @@ document.addEventListener("DOMContentLoaded", function(event) {
       document.querySelector("#alertBanner").classList.remove("hidden");
   }
 });
+
+// Face Recognition Functions
+function startFaceRecognition() {
+  document.getElementById('faceImageInput').click();
+}
+
+function handleFaceImage() {
+  const fileInput = document.getElementById('faceImageInput');
+  const file = fileInput.files[0];
+  
+  if (!file) {
+    showFaceRecognitionAlert('No image selected', 'danger');
+    return;
+  }
+  
+  // Show loading state
+  showFaceRecognitionAlert('Processing face recognition...', 'info');
+  
+  const formData = new FormData();
+  formData.append('image', file);
+  
+  fetch('/facerecog', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.recognized) {
+      showFaceRecognitionAlert(`Welcome ${data.username}! Redirecting...`, 'success');
+      // Redirect to home after successful recognition
+      setTimeout(() => {
+        window.location.href = '/home';
+      }, 2000);
+    } else {
+      showFaceRecognitionAlert('Face not recognized. Please try again.', 'danger');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showFaceRecognitionAlert('Face recognition failed. Please try again.', 'danger');
+  })
+  .finally(() => {
+    // Reset file input
+    fileInput.value = '';
+  });
+}
+
+function showFaceRecognitionAlert(message, type) {
+  const alertBanner = document.querySelector("#alertBanner");
+  alertBanner.textContent = message;
+  alertBanner.className = `alert alert-${type} mb-4`;
+  alertBanner.classList.remove("hidden");
+  
+  // Auto-hide success messages
+  if (type === 'success') {
+    setTimeout(() => {
+      alertBanner.classList.add("hidden");
+    }, 3000);
+  }
+}

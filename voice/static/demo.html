@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Recognition API Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h2 {
+            color: #666;
+            margin-top: 0;
+        }
+        input[type="file"], input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .audio-player {
+            margin-top: 10px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-online {
+            background-color: #28a745;
+        }
+        .status-offline {
+            background-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Voice Recognition API Demo</h1>
+        
+        <!-- Status Check -->
+        <div class="section">
+            <h2>API Status</h2>
+            <p>
+                <span id="status-indicator" class="status-indicator status-offline"></span>
+                <span id="status-text">Checking...</span>
+            </p>
+            <button onclick="checkStatus()">Check Status</button>
+        </div>
+
+        <!-- Voice Command Section -->
+        <div class="section">
+            <h2>Voice Command Upload</h2>
+            <p>Upload an audio file to convert speech to text and get an AI response:</p>
+            <input type="file" id="audioFile" accept=".wav,.mp3,.ogg,.m4a,.flac,.webm">
+            <button onclick="uploadVoiceCommand()" id="voiceBtn">Process Voice Command</button>
+            
+            <div id="voiceLoading" class="loading">
+                <p>🎧 Processing voice command...</p>
+            </div>
+            
+            <div id="voiceResult"></div>
+        </div>
+
+        <!-- Text Command Section -->
+        <div class="section">
+            <h2>Text Command</h2>
+            <p>Enter text to get an AI response with voice output:</p>
+            <textarea id="textInput" placeholder="Enter your text command here..." rows="3"></textarea>
+            <button onclick="sendTextCommand()" id="textBtn">Send Text Command</button>
+            
+            <div id="textLoading" class="loading">
+                <p>💭 Processing text command...</p>
+            </div>
+            
+            <div id="textResult"></div>
+        </div>
+
+        <!-- Demo Commands -->
+        <div class="section">
+            <h2>Demo Commands</h2>
+            <p>Try these example commands:</p>
+            <button onclick="sendDemoCommand('What is the weather like today?')">Weather Question</button>
+            <button onclick="sendDemoCommand('Navigate to the nearest coffee shop')">Navigation</button>
+            <button onclick="sendDemoCommand('Tell me a joke')">Entertainment</button>
+            <button onclick="sendDemoCommand('What time is it?')">Time Query</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5500';
+
+        // Check API status on page load
+        window.onload = function() {
+            checkStatus();
+        };
+
+        async function checkStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('status-indicator').className = 'status-indicator status-online';
+                    document.getElementById('status-text').textContent = 'API is online and ready';
+                } else {
+                    throw new Error('API returned error');
+                }
+            } catch (error) {
+                document.getElementById('status-indicator').className = 'status-indicator status-offline';
+                document.getElementById('status-text').textContent = 'API is offline or unreachable';
+            }
+        }
+
+        async function uploadVoiceCommand() {
+            const fileInput = document.getElementById('audioFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select an audio file');
+                return;
+            }
+
+            const loadingDiv = document.getElementById('voiceLoading');
+            const resultDiv = document.getElementById('voiceResult');
+            const button = document.getElementById('voiceBtn');
+            
+            // Show loading
+            loadingDiv.style.display = 'block';
+            resultDiv.innerHTML = '';
+            button.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('audio', file);
+
+                const response = await fetch(`${API_BASE}/voice-command`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResult(resultDiv, data, false);
+                } else {
+                    displayResult(resultDiv, { error: data.error || 'Unknown error' }, true);
+                }
+            } catch (error) {
+                displayResult(resultDiv, { error: 'Network error: ' + error.message }, true);
+            } finally {
+                loadingDiv.style.display = 'none';
+                button.disabled = false;
+            }
+        }
+
+        async function sendTextCommand() {
+            const textInput = document.getElementById('textInput');
+            const text = textInput.value.trim();
+            
+            if (!text) {
+                alert('Please enter some text');
+                return;
+            }
+
+            await processTextCommand(text, 'textResult', 'textLoading', 'textBtn');
+        }
+
+        async function sendDemoCommand(text) {
+            await processTextCommand(text, 'textResult', 'textLoading', 'textBtn');
+        }
+
+        async function processTextCommand(text, resultId, loadingId, buttonId) {
+            const loadingDiv = document.getElementById(loadingId);
+            const resultDiv = document.getElementById(resultId);
+            const button = document.getElementById(buttonId);
+            
+            // Show loading
+            loadingDiv.style.display = 'block';
+            resultDiv.innerHTML = '';
+            button.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/text-command`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResult(resultDiv, data, false);
+                } else {
+                    displayResult(resultDiv, { error: data.error || 'Unknown error' }, true);
+                }
+            } catch (error) {
+                displayResult(resultDiv, { error: 'Network error: ' + error.message }, true);
+            } finally {
+                loadingDiv.style.display = 'none';
+                button.disabled = false;
+            }
+        }
+
+        function displayResult(container, data, isError) {
+            container.className = 'result' + (isError ? ' error' : '');
+            
+            if (isError) {
+                container.innerHTML = `<strong>Error:</strong> ${data.error}`;
+                return;
+            }
+
+            let html = '<strong>Results:</strong><br><br>';
+            
+            if (data.recognized_text) {
+                html += `<strong>Recognized Text:</strong><br>${data.recognized_text}<br><br>`;
+            }
+            
+            if (data.input_text) {
+                html += `<strong>Input Text:</strong><br>${data.input_text}<br><br>`;
+            }
+            
+            if (data.response_text) {
+                html += `<strong>AI Response:</strong><br>${data.response_text}<br><br>`;
+            }
+            
+            if (data.audio_response_url) {
+                html += `<strong>Audio Response:</strong><br>
+                         <audio controls class="audio-player">
+                             <source src="${API_BASE}${data.audio_response_url}" type="audio/mpeg">
+                             Your browser does not support the audio element.
+                         </audio>`;
+            }
+            
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

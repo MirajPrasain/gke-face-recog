@@ -23,6 +23,7 @@ limitations under the License.
 {% include 'shared/navigation.html' %}
     <!-- Main Content -->
     <main class="container">
+
       <!-- Alert on load -->
     {% if message != None %}
       <div class="row col-lg-12 align-items-start" id="alert-message-div" >
@@ -58,11 +59,11 @@ limitations under the License.
         <div class="col-md-4 account-info text-right">
             <p>
               <span class="account-overview account-icon material-icons">info</span>
-              <span class="account-num-text">Account Number:</span><span class="account-number">{{ account_id }}</span>
+              <span class="account-num-text">Account Numbers:</span><span class="account-number">{{ account_id }}</span>
             </p>
         </div>
     </div>
-
+    {% include 'shared/voice.html' %}
     <!-- Balance / Deposit / Send Payment row -->
     <div class="row col-lg-12 align-items-start">
       <div class="col-lg-4">

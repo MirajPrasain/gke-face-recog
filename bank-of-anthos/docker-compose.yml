@@ -1,0 +1,211 @@
+services:
+  # PostgreSQL database for accounts
+  accounts-db:
+    image: us-central1-docker.pkg.dev/bank-of-anthos-ci/bank-of-anthos/accounts-db:v0.6.7@sha256:d1f7b4b42fbbad5b3f8c85c67a15f4e27cc9a054ae8bc2379e3f0319e313ce9d
+    container_name: accounts-db
+    environment:
+      - POSTGRES_DB=accounts-db
+      - POSTGRES_USER=accounts-admin
+      - POSTGRES_PASSWORD=accounts-pwd
+      - ACCOUNTS_DB_URI=postgresql://accounts-admin:accounts-pwd@accounts-db:5432/accounts-db
+      - USE_DEMO_DATA=True
+      - DEMO_LOGIN_USERNAME=testuser
+      - DEMO_LOGIN_PASSWORD=bankofanthos
+    ports:
+      - "5432:5432"
+    volumes:
+      - accounts_db_data:/var/lib/postgresql/data
+    networks:
+      - bank-of-anthos
+
+  # PostgreSQL database for ledger
+  ledger-db:
+    image: us-central1-docker.pkg.dev/bank-of-anthos-ci/bank-of-anthos/ledger-db:v0.6.7@sha256:9b4009cfd17929ee165d55326bcf8ccf0f65039b1a467b847197c8404f462b7d
+    container_name: ledger-db
+    environment:
+      - POSTGRES_DB=postgresdb
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://ledger-db:5432/postgresdb
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+      - USE_DEMO_DATA=True
+      - DEMO_LOGIN_USERNAME=testuser
+      - DEMO_LOGIN_PASSWORD=bankofanthos
+    ports:
+      - "5433:5432"
+    volumes:
+      - ledger_db_data:/var/lib/postgresql/data
+    networks:
+      - bank-of-anthos
+
+  # User service
+  userservice:
+    image: us-central1-docker.pkg.dev/bank-of-anthos-ci/bank-of-anthos/userservice:v0.6.7@sha256:932045a3bdba7b32fffe4087b544f4aa8e2952f3440ecaa92142c13407249732
+    container_name: userservice
+    environment:
+      - VERSION=v0.6.7
+      - PORT=8080
+      - ENABLE_TRACING=false
+      - TOKEN_EXPIRY_SECONDS=3600
+      - PRIV_KEY_PATH=/tmp/.ssh/privatekey
+      - LOG_LEVEL=info
+      - LOCAL_ROUTING_NUM=883745000
+      - PUB_KEY_PATH=/tmp/.ssh/publickey
+      - ACCOUNTS_DB_URI=postgresql://accounts-admin:accounts-pwd@accounts-db:5432/accounts-db
+    ports:
+      - "8081:8080"
+    depends_on:
+      - accounts-db
+    volumes:
+      - ./extras/jwt/jwtRS256.key:/tmp/.ssh/privatekey:ro
+      - ./extras/jwt/jwtRS256.key.pub:/tmp/.ssh/publickey:ro
+    networks:
+      - bank-of-anthos
+
+  # Contacts service
+  contacts:
+    image: us-central1-docker.pkg.dev/bank-of-anthos-ci/bank-of-anthos/contacts:v0.6.7@sha256:f8ff8a077eee05cfa330f269dd550844cf5a1e4c6f3cdfad6c6483e27da5400f
+    container_name: contacts
+    environment:
+      - VERSION=v0.6.7
+      - PORT=8080
+      - ENABLE_TRACING=false
+      - LOG_LEVEL=info
+      - LOCAL_ROUTING_NUM=883745000
+      - PUB_KEY_PATH=/tmp/.ssh/publickey
+      - ACCOUNTS_DB_URI=postgresql://accounts-admin:accounts-pwd@accounts-db:5432/accounts-db
+    ports:
+      - "8082:8080"
+    depends_on:
+      - accounts-db
+    volumes:
+      - ./extras/jwt/jwtRS256.key.pub:/tmp/.ssh/publickey:ro
+    networks:
+      - bank-of-anthos
+
+  # Ledger writer service
+  ledgerwriter:
+    image: us-central1-docker.pkg.dev/bank-of-anthos-ci/bank-of-anthos/ledgerwriter:v0.6.7@sha256:28eebe04f9cdcf89e4a75693485f0150f44a1383a9e85eb01e82ee5415c4828e
+    container_name: ledgerwriter
+    environment:
+      - VERSION=v0.6.7
+      - PORT=8080
+      - ENABLE_TRACING=false
+      - ENABLE_METRICS=false
+      - JVM_OPTS=-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xms256m -Xmx512m
+      - LOG_LEVEL=info
+      - LOCAL_ROUTING_NUM=883745000
+      - PUB_KEY_PATH=/tmp/.ssh/publickey
+      - TRANSACTIONS_API_ADDR=ledgerwriter:8080
+      - BALANCES_API_ADDR=balancereader:8080
+      - HISTORY_API_ADDR=transactionhistory:8080
+      - CONTACTS_API_ADDR=contacts:8080
+      - USERSERVICE_API_ADDR=userservice:8080
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://ledger-db:5432/postgresdb
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+    ports:
+      - "8083:8080"
+    depends_on:
+      - ledger-db
+    volumes:
+      - ./extras/jwt/jwtRS256.key.pub:/tmp/.ssh/publickey:ro
+    networks:
+      - bank-of-anthos
+
+  # Balance reader service
+  balancereader:
+    image: us-central1-docker.pkg.dev/bank-of-anthos-ci/bank-of-anthos/balancereader:v0.6.7@sha256:3b46d0274fb47a99415678aefcc55d2844d87e694c5ae4a796da8719c08e9ef0
+    container_name: balancereader
+    environment:
+      - VERSION=v0.6.7
+      - PORT=8080
+      - ENABLE_TRACING=false
+      - ENABLE_METRICS=false
+      - POLL_MS=100
+      - CACHE_SIZE=1000000
+      - JVM_OPTS=-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xms256m -Xmx512m
+      - LOG_LEVEL=info
+      - LOCAL_ROUTING_NUM=883745000
+      - PUB_KEY_PATH=/tmp/.ssh/publickey
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://ledger-db:5432/postgresdb
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+    ports:
+      - "8084:8080"
+    depends_on:
+      - ledger-db
+    volumes:
+      - ./extras/jwt/jwtRS256.key.pub:/tmp/.ssh/publickey:ro
+    networks:
+      - bank-of-anthos
+
+  # Transaction history service
+  transactionhistory:
+    image: us-central1-docker.pkg.dev/bank-of-anthos-ci/bank-of-anthos/transactionhistory:v0.6.7@sha256:8822d9130bd21895e453f88c0bf4eda3c8e23ce17f9eaefe8c3f71afe09bea7c
+    container_name: transactionhistory
+    environment:
+      - VERSION=v0.6.7
+      - PORT=8080
+      - ENABLE_TRACING=false
+      - ENABLE_METRICS=false
+      - POLL_MS=100
+      - CACHE_SIZE=1000
+      - CACHE_MINUTES=60
+      - HISTORY_LIMIT=100
+      - JVM_OPTS=-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xms256m -Xmx512m
+      - LOG_LEVEL=info
+      - LOCAL_ROUTING_NUM=883745000
+      - PUB_KEY_PATH=/tmp/.ssh/publickey
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://ledger-db:5432/postgresdb
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+    ports:
+      - "8085:8080"
+    depends_on:
+      - ledger-db
+    volumes:
+      - ./extras/jwt/jwtRS256.key.pub:/tmp/.ssh/publickey:ro
+    networks:
+      - bank-of-anthos
+
+  # Frontend service
+  frontend:
+    image: us-central1-docker.pkg.dev/bank-of-anthos-ci/bank-of-anthos/frontend:v0.6.7@sha256:6d92f3ce81a389738baf236477c6795831a0802c7a007697d7121f10eab9a2cc
+    container_name: frontend
+    environment:
+      - VERSION=v0.6.7
+      - PORT=8080
+      - ENABLE_TRACING=false
+      - SCHEME=http
+      - LOG_LEVEL=info
+      - DEFAULT_USERNAME=testuser
+      - DEFAULT_PASSWORD=bankofanthos
+      - LOCAL_ROUTING_NUM=883745000
+      - PUB_KEY_PATH=/tmp/.ssh/publickey
+      - TRANSACTIONS_API_ADDR=ledgerwriter:8080
+      - BALANCES_API_ADDR=balancereader:8080
+      - HISTORY_API_ADDR=transactionhistory:8080
+      - CONTACTS_API_ADDR=contacts:8080
+      - USERSERVICE_API_ADDR=userservice:8080
+    ports:
+      - "8086:8080"
+    depends_on:
+      - userservice
+      - contacts
+      - ledgerwriter
+      - balancereader
+      - transactionhistory
+    volumes:
+      - ./extras/jwt/jwtRS256.key.pub:/tmp/.ssh/publickey:ro
+    networks:
+      - bank-of-anthos
+
+volumes:
+  accounts_db_data:
+  ledger_db_data:
+
+networks:
+  bank-of-anthos:
+    driver: bridge

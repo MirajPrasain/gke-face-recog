@@ -76,6 +76,8 @@ limitations under the License.
                       </div>
                     </div>
                     <button class="btn btn-sign-in btn-block mb-4" type="submit">Sign in</button>
+                    <button class="btn btn-secondary btn-block mb-4" type="button" onclick="startFaceRecognition()">Login with Face Recognition</button>
+                    <input type="file" id="faceImageInput" accept="image/*" style="display: none;" onchange="handleFaceImage()">
                     <small class="text-uppercase secondary-text text-muted">
                       Not registered?
                     </small>
